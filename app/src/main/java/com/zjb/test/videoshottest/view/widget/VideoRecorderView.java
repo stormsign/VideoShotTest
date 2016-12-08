@@ -64,11 +64,6 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         typedArray.recycle();
     }
 
-    @Override
-    public void onError(MediaRecorder mr, int what, int extra) {
-
-    }
-
     private class MySurfaceViewCallBack implements SurfaceHolder.Callback {
         @Override
         public void surfaceCreated(SurfaceHolder holder) {
@@ -268,5 +263,31 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         mediaRecorder.start();
     }
 
+    public void record(){
+        
+    }
 
+
+    @Override
+    public void onError(MediaRecorder mr, int what, int extra) {
+
+    }
+        
+        
+    private OnRecordFinishListener onRecordFinishListener;
+    
+    public interface OnRecordFinishListener {
+        void onRecordFinish();
+    }
+
+    private OnRecordProgressListener onRecordProgressListener;
+
+    public interface OnRecordProgressListener {
+        void onProgressChanged(int maxTime, int currentTime);
+    }
+
+    public void setOnRecordProgressListener(OnRecordProgressListener onRecordProgressListener){
+        this.onRecordProgressListener = onRecordProgressListener;
+    }
+        
 }
