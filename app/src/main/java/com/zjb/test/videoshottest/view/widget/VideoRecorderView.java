@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.hardware.Camera;
+import android.media.CamcorderProfile;
 import android.media.MediaRecorder;
 import android.os.Environment;
 import android.util.AttributeSet;
@@ -20,6 +21,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 
 /**
@@ -35,9 +38,11 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
     private Camera camera;
-    private int sizePicture;
+    private long sizePicture;
     private File recordFile;
     private MediaRecorder mediaRecorder;
+    private int timeCount;
+    private Timer timer;
 
     public VideoRecorderView(Context context) {
         this(context, null);
@@ -122,8 +127,8 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
             List<Camera.Size> supportedPictureSizes = params.getSupportedPictureSizes();
             for (Camera.Size size : supportedPictureSizes){
                 sizePicture = (size.width*size.height) > sizePicture
-                        ? sizePicture
-                        : (size.width*size.height);
+                        ? size.width*size.height
+                        : sizePicture;
             }
             Log.i("VRV", "手机支持的最大像素："+sizePicture);
             setPreviewSize(params);
@@ -142,7 +147,7 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
 //        float minDiff = 100f;
 
         bestSize = setSize(params);
-        Log.i("VRV", "bestSize w:"+ bestSize.height
+        Log.i("VRV", "bestSize w:"+ bestSize.width
                 + "   h:"+bestSize.height);
         params.setPreviewSize(bestSize.width, bestSize.height);
         if (params.getSupportedVideoSizes() == null
@@ -179,7 +184,7 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         });
         for (Camera.Size supportedPreiview:
                 supportedPreviewSizes) {
-            Log.i("VRV", "supportedPreiview w:"+ supportedPreiview.height
+            Log.i("VRV", "supportedPreiview w:"+ supportedPreiview.width
                     + "   h:"+supportedPreiview.height);
             tmp = Math.abs(((float)supportedPreiview.height/(float)supportedPreiview.width)
                     - radio);
@@ -187,9 +192,9 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
                 minDiff = tmp;
                 bestSize = supportedPreiview;
             }
-            Log.i("VRV", "bestSize w:"+ bestSize.height
-                    + "   h:"+bestSize.height);
         }
+        Log.i("VRV", "bestSize w:"+ bestSize.width
+                + "   h:"+bestSize.height);
         return bestSize;
     }
 
@@ -248,24 +253,101 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         mediaRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
-        mediaRecorder.setVideoSize(mWidth, mHeight);
+        CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_1080P);
+        mediaRecorder.setVideoSize(profile.videoFrameWidth, profile.videoFrameHeight);
         if (sizePicture < 3000000) {//设置分辨率，控制清晰度
-            mediaRecorder.setVideoEncodingBitRate(3*1024*512);
+            mediaRecorder.setVideoEncodingBitRate(3*1280*720);
         } else if (sizePicture <= 5000000){
-            mediaRecorder.setVideoEncodingBitRate(2 * 1024 * 512);
+            mediaRecorder.setVideoEncodingBitRate(2 * 1280*720);
         } else {
-            mediaRecorder.setVideoEncodingBitRate(1 * 1024 * 512);
+            mediaRecorder.setVideoEncodingBitRate(1 * 1280*720);
         }
-        mediaRecorder.setOrientationHint(270);  //输出旋转90度，保持竖屏录制
+        mediaRecorder.setOrientationHint(90);  //输出旋转90度，保持竖屏录制
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);     //视频录制格式
         mediaRecorder.setOutputFile(recordFile.getAbsolutePath());
         mediaRecorder.prepare();
         mediaRecorder.start();
     }
 
-    public void record(){
-        
+    public void record(final OnRecordFinishListener onRecordFinishListener){
+        this.onRecordFinishListener = onRecordFinishListener;
+        createRecordDir();
+        try {
+            if (!mIsCameraOpened) {
+                initCamera();
+            }
+            initRecord();
+            timeCount = 0;  //时间计数器重设
+            timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    timeCount++;
+                    if (onRecordProgressListener != null){
+                        onRecordProgressListener.onProgressChanged(mMaxRecordTime, timeCount);
+                    }
+                    if (timeCount == mMaxRecordTime){
+                        stop();
+                        if (VideoRecorderView.this.onRecordFinishListener != null){
+                            VideoRecorderView.this.onRecordFinishListener.onRecordFinish();
+                        }
+                    }
+                }
+            }, 0, 1000);
+        } catch (IOException e) {
+            e.printStackTrace();
+            if (mediaRecorder != null){
+                mediaRecorder.release();
+            }
+            freeResource();
+        }
     }
+
+    public void stop() {
+        stopRecord();
+        releaseRecord();
+        freeResource();
+    }
+
+    private void stopRecord() {
+        if (timer != null){
+            timer.cancel();
+        }
+        if (mediaRecorder != null){
+            mediaRecorder.setOnErrorListener(null);
+            mediaRecorder.setPreviewDisplay(null);
+            try {
+                mediaRecorder.stop();
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void releaseRecord() {
+        if (mediaRecorder != null){
+            mediaRecorder.setOnErrorListener(null);
+            try {
+                mediaRecorder.release();
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+        mediaRecorder = null;
+    }
+
+    public int getTimeCount(){
+        return timeCount;
+    }
+
+    public void setRecordMaxTime(int recordMaxTime){
+        this.mMaxRecordTime = recordMaxTime;
+    }
+
+    public File getRecordFile(){
+        return recordFile;
+    }
+
 
 
     @Override
