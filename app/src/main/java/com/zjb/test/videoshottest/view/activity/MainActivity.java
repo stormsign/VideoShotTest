@@ -7,7 +7,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.LinearLayout;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
 import com.zjb.test.videoshottest.R;
@@ -24,17 +24,16 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         Log.i("VRV", "main activity");
         videoRecorder = (VideoRecorderView) findViewById(R.id.videoRecorder);
-        findViewById(R.id.start).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                record(v);
-            }
-        });
-        LinearLayout root = (LinearLayout) findViewById(R.id.root);
-        LinearLayout.LayoutParams params = (LinearLayout.LayoutParams) videoRecorder.getLayoutParams();
+//        findViewById(R.id.start).setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                record(v);
+//            }
+//        });
+        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) videoRecorder.getLayoutParams();
         DisplayMetrics dm = getApplicationContext().getResources().getDisplayMetrics();
         int width = dm.widthPixels;
-        params.height = width * 3 / 4;
+        params.height = width * 4 / 3;
         videoRecorder.setLayoutParams(params);
     }
 

@@ -60,7 +60,7 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         mWidth = typedArray.getInteger(R.styleable.VideoRecorderView_recorder_width, 640);
         mHeight = typedArray.getInteger(R.styleable.VideoRecorderView_recorder_height, 360);
         mIsCameraOpened = typedArray.getBoolean(R.styleable.VideoRecorderView_is_camera_opened, true);
-        mMaxRecordTime = typedArray.getInteger(R.styleable.VideoRecorderView_max_record_time, 30);
+        mMaxRecordTime = typedArray.getInteger(R.styleable.VideoRecorderView_max_record_time, 10);
         LayoutInflater.from(context).inflate(R.layout.view_video_record, this);
         surfaceView = (SurfaceView) findViewById(R.id.surfaceView);
         surfaceHolder = surfaceView.getHolder();
@@ -97,12 +97,15 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
     }
 
     private void initCamera() throws IOException {
+        if (camera!=null){
+            freeResource();
+        }
 //        优先使用前置摄像头，没有就使用后置摄像头
         try {
-            if (checkCameraFacing(Camera.CameraInfo.CAMERA_FACING_FRONT)) {
-                camera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
-            }else if (checkCameraFacing(Camera.CameraInfo.CAMERA_FACING_BACK)){
+            if (checkCameraFacing(Camera.CameraInfo.CAMERA_FACING_BACK)) {
                 camera = Camera.open(Camera.CameraInfo.CAMERA_FACING_BACK);
+            }else if (checkCameraFacing(Camera.CameraInfo.CAMERA_FACING_FRONT)){
+                camera = Camera.open(Camera.CameraInfo.CAMERA_FACING_FRONT);
             }
         }catch (Exception e){
             e.printStackTrace();
@@ -176,10 +179,9 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
                     return -1;
                 } else if (l.width == r.width) {
                     return 0;
-                } else if (l.width < r.width) {
+                } else {
                     return 1;
                 }
-                return 0;
             }
         });
         for (Camera.Size supportedPreiview:
@@ -221,7 +223,9 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         Camera.CameraInfo info = new Camera.CameraInfo();
         for (int i = 0; i<cameraCount; i++){
             Camera.getCameraInfo(i, info);
-            return info.facing == facing;
+            if (info.facing == facing){
+                return true;
+            }
         }
         return false;
     }
@@ -254,13 +258,13 @@ public class VideoRecorderView extends LinearLayout implements MediaRecorder.OnE
         mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
         CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_1080P);
-        mediaRecorder.setVideoSize(profile.videoFrameWidth, profile.videoFrameHeight);
+        mediaRecorder.setVideoSize(mWidth, mHeight);
         if (sizePicture < 3000000) {//设置分辨率，控制清晰度
-            mediaRecorder.setVideoEncodingBitRate(3*1280*720);
+            mediaRecorder.setVideoEncodingBitRate(3*1920*1080);
         } else if (sizePicture <= 5000000){
-            mediaRecorder.setVideoEncodingBitRate(2 * 1280*720);
+            mediaRecorder.setVideoEncodingBitRate(2 * 1920*1080);
         } else {
-            mediaRecorder.setVideoEncodingBitRate(1 * 1280*720);
+            mediaRecorder.setVideoEncodingBitRate(1 * 1920*1080);
         }
         mediaRecorder.setOrientationHint(90);  //输出旋转90度，保持竖屏录制
         mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);     //视频录制格式
